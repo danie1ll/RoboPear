@@ -10,6 +10,7 @@ import AVFoundation
 
 struct AlertItem: Identifiable {
     let id = UUID()
+    let title: String
     let message: String
 }
 
@@ -18,10 +19,9 @@ struct ContentView: View {
     @State private var image: UIImage?
     @State private var description: String = ""
     @State private var isShowingImagePicker = false
-    @State private var isUploading = false
     @State private var uploadResult: String?
     @State private var videoURL: String?
-    @State private var errorMessage: String?
+    @State private var alertItem: AlertItem?
 
     var body: some View {
         NavigationView {
@@ -40,7 +40,7 @@ struct ContentView: View {
                         description = ""
                     })
                 case 2:
-                    UploadResultView(result: uploadResult ?? "", videoURL: videoURL ?? "", onBack: {
+                    UploadResultView(result: uploadResult ?? "", videoURL: videoURL, onBack: {
                         currentStep = 0
                         image = nil
                         description = ""
@@ -62,38 +62,25 @@ struct ContentView: View {
                     }
                 }
         }
-        .overlay(
-            Group {
-                if isUploading {
-                    ProgressView("Processing...")
-                        .padding()
-                        .background(Color.secondary.colorInvert())
-                        .cornerRadius(10)
-                        .shadow(radius: 10)
-                }
-            }
-        )
-        .alert(item: Binding<AlertItem?>(
-            get: { errorMessage.map { AlertItem(message: $0) } },
-            set: { _ in errorMessage = nil }
-        )) { alertItem in
-            Alert(title: Text("Error"), message: Text(alertItem.message), dismissButton: .default(Text("OK")))
+        .alert(item: $alertItem) { item in
+            Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK")))
         }
     }
     
     private func uploadImageAndDescription() {
         guard let image = image else { return }
-        isUploading = true
         
         APIService.shared.uploadImage(image) { result in
-            switch result {
-            case .success(let message):
-                print("Image upload success: \(message)")
-                uploadResult = message
-                currentStep = 2
-            case .failure(let error):
-                print("Image upload failure: \(error)")
-                errorMessage = error.localizedDescription
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let message):
+                    print("Image upload success: \(message)")
+                    uploadResult = message
+                    currentStep = 2
+                case .failure(let error):
+                    print("Image upload failure: \(error)")
+                    alertItem = AlertItem(title: "Upload Error", message: error.localizedDescription)
+                }
             }
         }
     }
@@ -208,7 +195,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 
 struct UploadResultView: View {
     let result: String
-    let videoURL: String
+    let videoURL: String?
     let onBack: () -> Void
     
     var body: some View {
@@ -219,6 +206,13 @@ struct UploadResultView: View {
             Text(result)
                 .multilineTextAlignment(.center)
                 .padding()
+            
+            if let url = videoURL, !url.isEmpty {
+                Text("Video URL: \(url)")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .padding()
+            }
             
             Button(action: onBack) {
                 Text("Back to Start")

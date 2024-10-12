@@ -5,11 +5,11 @@ class APIService {
     static let shared = APIService()
     private init() {}
     
-    private let baseURL = "http://127.0.0.1:8000" // Replace with your actual server address and port
+    private let baseURL = "https://c9ab-4-39-199-2.ngrok-free.app" // Replace with your actual server address and port! Use ngrok
     
     func uploadImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
-            completion(.failure(NSError(domain: "ImageConversionError", code: 0, userInfo: nil)))
+            completion(.failure(NSError(domain: "ImageConversionError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to convert image to JPEG data"])))
             return
         }
         
@@ -40,7 +40,7 @@ class APIService {
             }
             
             guard let data = data else {
-                completion(.failure(NSError(domain: "NoDataError", code: 0, userInfo: nil)))
+                completion(.failure(NSError(domain: "NoDataError", code: 0, userInfo: [NSLocalizedDescriptionKey: "No data received from server"])))
                 return
             }
             
@@ -49,7 +49,8 @@ class APIService {
                    let message = json["message"] as? String {
                     completion(.success(message))
                 } else {
-                    completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: nil)))
+                    let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+                    completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response format: \(responseString)"])))
                 }
             } catch {
                 completion(.failure(error))
