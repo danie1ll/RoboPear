@@ -71,15 +71,29 @@ struct ContentView: View {
         guard let image = image else { return }
         
         APIService.shared.uploadImage(image) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let message):
-                    print("Image upload success: \(message)")
-                    uploadResult = message
-                    currentStep = 2
-                case .failure(let error):
+            switch result {
+            case .success(let imageMessage):
+                print("Image upload success: \(imageMessage)")
+                
+                // Now upload the text
+                APIService.shared.uploadText(self.description) { textResult in
+                    DispatchQueue.main.async {
+                        switch textResult {
+                        case .success(let textMessage):
+                            print("Text upload success: \(textMessage)")
+                            self.uploadResult = "Image and text uploaded successfully"
+                            self.currentStep = 2
+                        case .failure(let error):
+                            print("Text upload failure: \(error)")
+                            self.alertItem = AlertItem(title: "Text Upload Error", message: error.localizedDescription)
+                        }
+                    }
+                }
+                
+            case .failure(let error):
+                DispatchQueue.main.async {
                     print("Image upload failure: \(error)")
-                    alertItem = AlertItem(title: "Upload Error", message: error.localizedDescription)
+                    self.alertItem = AlertItem(title: "Image Upload Error", message: error.localizedDescription)
                 }
             }
         }

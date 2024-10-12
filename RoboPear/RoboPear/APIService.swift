@@ -5,7 +5,8 @@ class APIService {
     static let shared = APIService()
     private init() {}
     
-    private let baseURL = "https://c9ab-4-39-199-2.ngrok-free.app" // Replace with your actual server address and port! Use ngrok
+    private let baseURL = "https://96a4-4-39-199-2.ngrok-free.app" // Replace with your actual server address and port
+    private let sessionID = UUID().uuidString // Generate a unique session ID
     
     func uploadImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
         guard let imageData = image.jpegData(compressionQuality: 0.8) else {
@@ -13,7 +14,7 @@ class APIService {
             return
         }
         
-        let url = URL(string: baseURL + "/upload-image/")!
+        let url = URL(string: baseURL + "/upload-image/\(sessionID)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         
@@ -44,6 +45,9 @@ class APIService {
                 return
             }
             
+            // Print raw response for debugging
+            print("Raw response: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
+            
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                    let message = json["message"] as? String {
@@ -59,7 +63,7 @@ class APIService {
     }
     
     func uploadText(_ text: String, completion: @escaping (Result<String, Error>) -> Void) {
-        let url = URL(string: baseURL + "/upload-text/")!
+        let url = URL(string: baseURL + "/upload-text/\(sessionID)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -74,7 +78,7 @@ class APIService {
             }
             
             guard let data = data else {
-                completion(.failure(NSError(domain: "NoDataError", code: 0, userInfo: nil)))
+                completion(.failure(NSError(domain: "NoDataError", code: 0, userInfo: [NSLocalizedDescriptionKey: "No data received from server"])))
                 return
             }
             
@@ -83,7 +87,8 @@ class APIService {
                    let message = json["message"] as? String {
                     completion(.success(message))
                 } else {
-                    completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: nil)))
+                    let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+                    completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response format: \(responseString)"])))
                 }
             } catch {
                 completion(.failure(error))
