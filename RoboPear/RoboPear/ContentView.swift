@@ -6,56 +6,166 @@
 //
 
 import SwiftUI
+import AVFoundation
+
+struct AlertItem: Identifiable {
+    let id = UUID()
+    let message: String
+}
 
 struct ContentView: View {
+    @State private var currentStep = 0
     @State private var image: UIImage?
     @State private var description: String = ""
     @State private var isShowingImagePicker = false
-    @State private var isRecording = false
+    @State private var isUploading = false
+    @State private var uploadResult: String?
+    @State private var videoURL: String?
+    @State private var errorMessage: String?
 
     var body: some View {
-        VStack {
-            // Image display
-            if let image = image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 200)
-            } else {
-                Image(systemName: "camera")
-                    .imageScale(.large)
-                    .foregroundStyle(.tint)
+        NavigationView {
+            VStack {
+                switch currentStep {
+                case 0:
+                    WelcomeView(onTakePicture: {
+                        isShowingImagePicker = true
+                    })
+                case 1:
+                    ProductDescriptionView(image: image!, description: $description, onSubmit: {
+                        uploadImageAndDescription()
+                    }, onBack: {
+                        currentStep = 0
+                        image = nil
+                        description = ""
+                    })
+                case 2:
+                    UploadResultView(result: uploadResult ?? "", videoURL: videoURL ?? "", onBack: {
+                        currentStep = 0
+                        image = nil
+                        description = ""
+                        uploadResult = nil
+                        videoURL = nil
+                    })
+                default:
+                    Text("Invalid step")
+                }
             }
-
-            // Take picture button
-            Button("Take Picture") {
-                isShowingImagePicker = true
-            }
-
-            // Description input
-            TextField("Enter description", text: $description)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .padding()
-
-            // Voice input button
-            Button(isRecording ? "Stop Recording" : "Start Voice Input") {
-                isRecording.toggle()
-                // Implement voice recording logic here
-            }
-
-            // Send to server button
-            Button("Send to Server") {
-                sendToServer()
-            }
+            .navigationBarTitle("RoboPear", displayMode: .inline)
+            .navigationBarBackButtonHidden(true)
         }
-        .padding()
         .sheet(isPresented: $isShowingImagePicker) {
             ImagePicker(image: $image)
+                .onDisappear {
+                    if image != nil {
+                        currentStep = 1
+                    }
+                }
+        }
+        .overlay(
+            Group {
+                if isUploading {
+                    ProgressView("Processing...")
+                        .padding()
+                        .background(Color.secondary.colorInvert())
+                        .cornerRadius(10)
+                        .shadow(radius: 10)
+                }
+            }
+        )
+        .alert(item: Binding<AlertItem?>(
+            get: { errorMessage.map { AlertItem(message: $0) } },
+            set: { _ in errorMessage = nil }
+        )) { alertItem in
+            Alert(title: Text("Error"), message: Text(alertItem.message), dismissButton: .default(Text("OK")))
         }
     }
+    
+    private func uploadImageAndDescription() {
+        guard let image = image else { return }
+        isUploading = true
+        
+        APIService.shared.uploadImage(image) { result in
+            switch result {
+            case .success(let message):
+                print("Image upload success: \(message)")
+                uploadResult = message
+                currentStep = 2
+            case .failure(let error):
+                print("Image upload failure: \(error)")
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
 
-    func sendToServer() {
-        // Implement server sending logic here
+struct WelcomeView: View {
+    let onTakePicture: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Create an ad and validate your product in one click!")
+                .font(.title)
+                .multilineTextAlignment(.center)
+                .padding()
+            
+            Button(action: onTakePicture) {
+                Text("Take a Picture")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+        }
+    }
+}
+
+struct ProductDescriptionView: View {
+    let image: UIImage
+    @Binding var description: String
+    let onSubmit: () -> Void
+    let onBack: () -> Void
+    @State private var isRecording = false
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(height: 200)
+            
+            HStack {
+                TextField("Describe your product", text: $description)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                
+                Button(action: {
+                    isRecording.toggle()
+                    // Implement voice input logic here
+                }) {
+                    Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle")
+                        .foregroundColor(isRecording ? .red : .blue)
+                        .font(.title)
+                }
+            }
+            .padding()
+            
+            Button(action: onSubmit) {
+                Text("Submit")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.green)
+                    .cornerRadius(10)
+            }
+        }
+        .navigationBarBackButtonHidden(true)
+        .navigationBarItems(leading: Button(action: onBack) {
+            HStack {
+                Image(systemName: "chevron.left")
+                Text("Back")
+            }
+        })
     }
 }
 
@@ -66,7 +176,11 @@ struct ImagePicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.delegate = context.coordinator
+        #if targetEnvironment(simulator)
+        picker.sourceType = .photoLibrary
+        #else
         picker.sourceType = .camera
+        #endif
         return picker
     }
     
@@ -89,6 +203,33 @@ struct ImagePicker: UIViewControllerRepresentable {
             }
             parent.presentationMode.wrappedValue.dismiss()
         }
+    }
+}
+
+struct UploadResultView: View {
+    let result: String
+    let videoURL: String
+    let onBack: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Upload Result")
+                .font(.title)
+            
+            Text(result)
+                .multilineTextAlignment(.center)
+                .padding()
+            
+            Button(action: onBack) {
+                Text("Back to Start")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+        }
+        .navigationBarBackButtonHidden(true)
     }
 }
 
