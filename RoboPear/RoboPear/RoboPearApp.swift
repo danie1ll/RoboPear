@@ -8,10 +8,16 @@
 import SwiftUI
 
 @main
-struct RoboPearApp: App {
+struct YourAppName: App {
+    @State private var showContentView = false
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if showContentView {
+                ContentView()
+            } else {
+                LandingView(showContentView: $showContentView)
+            }
         }
     }
 }
