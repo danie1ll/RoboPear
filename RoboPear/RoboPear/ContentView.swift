@@ -153,38 +153,62 @@ struct ProductDescriptionView: View {
     @StateObject private var speechRecognizer = SpeechRecognizer()
     
     var body: some View {
-        VStack(spacing: 20) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(height: 200)
-            
-            HStack {
-                TextField("Describe your product", text: $description)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                
-                Button(action: {
-                    if isRecording {
-                        speechRecognizer.stopTranscribing()
-                    } else {
-                        speechRecognizer.transcribe()
-                    }
-                    isRecording.toggle()
-                }) {
-                    Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle")
-                        .foregroundColor(isRecording ? .red : .blue)
-                        .font(.title)
-                }
-            }
-            .padding()
-            
-            Button(action: onSubmit) {
-                Text("Submit")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.green)
+        ScrollView {
+            VStack(spacing: 20) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 300)
                     .cornerRadius(10)
+                    .shadow(radius: 5)
+                
+                VStack(alignment: .leading) {
+                    Text("Describe your product:")
+                        .font(.headline)
+                    
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $description)
+                            .frame(minHeight: 100, maxHeight: .infinity)
+                            .padding(4)
+                            .background(Color(UIColor.systemGray6))
+                            .cornerRadius(8)
+                        
+                        if description.isEmpty {
+                            Text("Enter your description here...")
+                                .foregroundColor(Color(UIColor.placeholderText))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 12)
+                        }
+                    }
+                    
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            if isRecording {
+                                speechRecognizer.stopTranscribing()
+                            } else {
+                                speechRecognizer.transcribe()
+                            }
+                            isRecording.toggle()
+                        }) {
+                            Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle")
+                                .foregroundColor(isRecording ? .red : .blue)
+                                .font(.title)
+                        }
+                    }
+                }
+                .padding()
+                
+                Button(action: onSubmit) {
+                    Text("Submit")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.green)
+                        .cornerRadius(10)
+                }
+                .padding(.horizontal)
             }
         }
         .navigationBarBackButtonHidden(true)
