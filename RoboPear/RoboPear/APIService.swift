@@ -5,11 +5,11 @@ class APIService {
     static let shared = APIService()
     private init() {}
     
-    private let baseURL = "https://96a4-4-39-199-2.ngrok-free.app" // Replace with your actual server address and port
+    private let baseURL = "https://7e26-4-39-199-2.ngrok-free.app" // Replace with your actual server address and port
     private let sessionID = UUID().uuidString // Generate a unique session ID
     
     func uploadImage(_ image: UIImage, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let imageData = image.jpegData(compressionQuality: 0.8) else {
+        guard let imageData = image.jpegData(compressionQuality: 0.7) else {
             completion(.failure(NSError(domain: "ImageConversionError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Failed to convert image to JPEG data"])))
             return
         }
@@ -45,19 +45,13 @@ class APIService {
                 return
             }
             
-            // Print raw response for debugging
-            print("Raw response: \(String(data: data, encoding: .utf8) ?? "Unable to decode")")
-            
             do {
-                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                   let message = json["message"] as? String {
-                    completion(.success(message))
-                } else {
-                    let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
-                    completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response format: \(responseString)"])))
-                }
+                let decoder = JSONDecoder()
+                let uploadResponse = try decoder.decode(ImageUploadResponse.self, from: data)
+                completion(.success(uploadResponse))
             } catch {
-                completion(.failure(error))
+                let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+                completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response format: \(responseString)"])))
             }
         }.resume()
     }

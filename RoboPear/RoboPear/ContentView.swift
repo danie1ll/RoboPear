@@ -20,7 +20,7 @@ struct ContentView: View {
     @State private var description: String = ""
     @State private var isShowingImagePicker = false
     @State private var uploadResult: String?
-    @State private var landingPageURL: String?
+    @State private var videoURL: String?
     @State private var alertItem: AlertItem?
     @State private var isUploading = false
 
@@ -41,12 +41,12 @@ struct ContentView: View {
                         description = ""
                     })
                 case 2:
-                    UploadResultView(result: uploadResult ?? "", landingPageURL: landingPageURL, onBack: {
+                    UploadResultView(result: uploadResult ?? "", videoURL: videoURL, onBack: {
                         currentStep = 0
                         image = nil
                         description = ""
                         uploadResult = nil
-                        landingPageURL = nil
+                        videoURL = nil
                     })
                 default:
                     Text("Invalid step")
@@ -90,30 +90,15 @@ struct ContentView: View {
         isUploading = true
         
         APIService.shared.uploadImage(image) { result in
-            switch result {
-            case .success(let imageMessage):
-                print("Image upload success: \(imageMessage)")
-                
-                // Now upload the text
-                APIService.shared.uploadText(self.description) { textResult in
-                    DispatchQueue.main.async {
-                        isUploading = false
-                        switch textResult {
-                        case .success(let textMessage):
-                            print("Text upload success: \(textMessage)")
-                            self.landingPageURL = textMessage
-                            self.uploadResult = "Image and text uploaded successfully"
-                            self.currentStep = 2
-                        case .failure(let error):
-                            print("Text upload failure: \(error)")
-                            self.alertItem = AlertItem(title: "Text Upload Error", message: error.localizedDescription)
-                        }
-                    }
-                }
-                
-            case .failure(let error):
-                DispatchQueue.main.async {
-                    isUploading = false
+            DispatchQueue.main.async {
+                self.isUploading = false
+                switch result {
+                case .success(let videoUrl):
+                    print("Image upload success. Video URL: \(videoUrl)")
+                    self.uploadResult = "Video generated successfully"
+                    self.videoURL = videoUrl
+                    self.currentStep = 2
+                case .failure(let error):
                     print("Image upload failure: \(error)")
                     self.alertItem = AlertItem(title: "Image Upload Error", message: error.localizedDescription)
                 }
@@ -266,7 +251,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 
 struct UploadResultView: View {
     let result: String
-    let landingPageURL: String?
+    let videoURL: String?
     let onBack: () -> Void
     
     var body: some View {
@@ -278,16 +263,14 @@ struct UploadResultView: View {
                 .multilineTextAlignment(.center)
                 .padding()
             
-            if let url = landingPageURL {
-                Text("Here is your awesome landing page:")
+            if let url = videoURL {
+                Text("Your video is ready!")
                     .font(.headline)
                     .padding(.top)
                 
-                Link(url, destination: URL(string: url) ?? URL(string: "https://example.com")!)
+                Link("Watch Video", destination: URL(string: url) ?? URL(string: "https://example.com")!)
                     .font(.subheadline)
                     .foregroundColor(.blue)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
             }
             
             Button(action: onBack) {
