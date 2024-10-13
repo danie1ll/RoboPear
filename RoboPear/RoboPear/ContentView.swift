@@ -128,6 +128,7 @@ struct ProductDescriptionView: View {
     let onSubmit: () -> Void
     let onBack: () -> Void
     @State private var isRecording = false
+    @StateObject private var speechRecognizer = SpeechRecognizer()
     
     var body: some View {
         VStack(spacing: 20) {
@@ -141,8 +142,12 @@ struct ProductDescriptionView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                 
                 Button(action: {
+                    if isRecording {
+                        speechRecognizer.stopTranscribing()
+                    } else {
+                        speechRecognizer.transcribe()
+                    }
                     isRecording.toggle()
-                    // Implement voice input logic here
                 }) {
                     Image(systemName: isRecording ? "stop.circle.fill" : "mic.circle")
                         .foregroundColor(isRecording ? .red : .blue)
@@ -167,6 +172,12 @@ struct ProductDescriptionView: View {
                 Text("Back")
             }
         })
+        .onAppear {
+            speechRecognizer.requestAuthorization()
+        }
+        .onChange(of: speechRecognizer.transcript) { newValue in
+            description = newValue
+        }
     }
 }
 
