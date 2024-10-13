@@ -84,8 +84,8 @@ class APIService {
             
             do {
                 if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                   let message = json["message"] as? String {
-                    completion(.success(message))
+                   let url = json["url"] as? String {
+                    completion(.success(url))
                 } else {
                     let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
                     completion(.failure(NSError(domain: "InvalidResponseError", code: 0, userInfo: [NSLocalizedDescriptionKey: "Invalid response format: \(responseString)"])))

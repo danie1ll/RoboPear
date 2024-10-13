@@ -20,8 +20,9 @@ struct ContentView: View {
     @State private var description: String = ""
     @State private var isShowingImagePicker = false
     @State private var uploadResult: String?
-    @State private var videoURL: String?
+    @State private var landingPageURL: String?
     @State private var alertItem: AlertItem?
+    @State private var isUploading = false
 
     var body: some View {
         NavigationView {
@@ -40,12 +41,12 @@ struct ContentView: View {
                         description = ""
                     })
                 case 2:
-                    UploadResultView(result: uploadResult ?? "", videoURL: videoURL, onBack: {
+                    UploadResultView(result: uploadResult ?? "", landingPageURL: landingPageURL, onBack: {
                         currentStep = 0
                         image = nil
                         description = ""
                         uploadResult = nil
-                        videoURL = nil
+                        landingPageURL = nil
                     })
                 default:
                     Text("Invalid step")
@@ -65,10 +66,28 @@ struct ContentView: View {
         .alert(item: $alertItem) { item in
             Alert(title: Text(item.title), message: Text(item.message), dismissButton: .default(Text("OK")))
         }
+        .overlay(
+            Group {
+                if isUploading {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+                    VStack {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(2)
+                        Text("Uploading...")
+                            .foregroundColor(.white)
+                            .padding(.top)
+                    }
+                }
+            }
+        )
     }
     
     private func uploadImageAndDescription() {
         guard let image = image else { return }
+        
+        isUploading = true
         
         APIService.shared.uploadImage(image) { result in
             switch result {
@@ -78,9 +97,11 @@ struct ContentView: View {
                 // Now upload the text
                 APIService.shared.uploadText(self.description) { textResult in
                     DispatchQueue.main.async {
+                        isUploading = false
                         switch textResult {
                         case .success(let textMessage):
                             print("Text upload success: \(textMessage)")
+                            self.landingPageURL = textMessage
                             self.uploadResult = "Image and text uploaded successfully"
                             self.currentStep = 2
                         case .failure(let error):
@@ -92,6 +113,7 @@ struct ContentView: View {
                 
             case .failure(let error):
                 DispatchQueue.main.async {
+                    isUploading = false
                     print("Image upload failure: \(error)")
                     self.alertItem = AlertItem(title: "Image Upload Error", message: error.localizedDescription)
                 }
@@ -220,7 +242,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 
 struct UploadResultView: View {
     let result: String
-    let videoURL: String?
+    let landingPageURL: String?
     let onBack: () -> Void
     
     var body: some View {
@@ -232,11 +254,16 @@ struct UploadResultView: View {
                 .multilineTextAlignment(.center)
                 .padding()
             
-            if let url = videoURL, !url.isEmpty {
-                Text("Video URL: \(url)")
-                    .font(.caption)
-                    .multilineTextAlignment(.center)
-                    .padding()
+            if let url = landingPageURL {
+                Text("Here is your awesome landing page:")
+                    .font(.headline)
+                    .padding(.top)
+                
+                Link(url, destination: URL(string: url) ?? URL(string: "https://example.com")!)
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             
             Button(action: onBack) {
@@ -247,8 +274,10 @@ struct UploadResultView: View {
                     .background(Color.blue)
                     .cornerRadius(10)
             }
+            .padding(.top)
         }
         .navigationBarBackButtonHidden(true)
+        .padding()
     }
 }
 
